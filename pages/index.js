@@ -147,13 +147,15 @@ export default function Home() {
               Currently mining your transaction...
             </p>
           </div>
-        ) : (
+        ) : currentAccount ? (
           <button
             className="mt-8 -5 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
             onClick={wave}
           >
             Wave at Me
           </button>
+        ) : (
+          <p>Please connect your wallet</p>
         )}
       </main>
 
