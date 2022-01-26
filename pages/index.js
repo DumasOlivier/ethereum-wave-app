@@ -1,8 +1,16 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
+import { ethers } from 'ethers';
+import { Oval } from 'react-loader-spinner';
+import abiObject from '../utils/WavePortal.json';
 
 export default function Home() {
   const [currentAccount, setCurrentAccount] = useState('');
+  const [isMining, setIsMining] = useState(false);
+
+  // Not sure if I have the correct address here.
+  const contractAddress = '0x1dFd3131197c1f454a318D2f6D55F56e23ACde2b';
+  const contractABI = abiObject.abi;
 
   const checkIfWalletIsConnected = async () => {
     try {
@@ -15,9 +23,6 @@ export default function Home() {
         console.log('We have the ethereum object', ethereum);
       }
 
-      /*
-       * Check if we're authorized to access the user's wallet
-       */
       const accounts = await ethereum.request({ method: 'eth_accounts' });
 
       if (accounts.length !== 0) {
@@ -52,8 +57,40 @@ export default function Home() {
     }
   };
 
-  const wave = () => {
-    console.log('waved');
+  const wave = async () => {
+    try {
+      const { ethereum } = window;
+
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const wavePortalContract = new ethers.Contract(
+          contractAddress,
+          contractABI,
+          signer
+        );
+
+        let count = await wavePortalContract.getTotalWaves();
+        console.log('Retrieved total wave count...', count.toNumber());
+
+        await setIsMining(true);
+
+        const waveTxn = await wavePortalContract.wave();
+        console.log('Mining...', waveTxn.hash);
+
+        await waveTxn.wait();
+        console.log('Mined -- ', waveTxn.hash);
+
+        await setIsMining(false);
+
+        count = await wavePortalContract.getTotalWaves();
+        console.log('Retrieved new total wave count...', count.toNumber());
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   useEffect(() => {
@@ -93,12 +130,31 @@ export default function Home() {
           Connect your Ethereum wallet and wave at me!
         </div>
 
-        <button
-          className="mt-5 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
-          onClick={wave}
-        >
-          Wave at Me
-        </button>
+        {isMining ? (
+          <div className="d-flex flex-col justify-center mt-8">
+            <div className="flex justify-center">
+              <Oval
+                ariaLabel="loading-indicator"
+                height={100}
+                width={100}
+                strokeWidth={5}
+                strokeWidthSecondary={1}
+                color="blue"
+                secondaryColor="white"
+              />
+            </div>
+            <p className="mt-5 font-bold text-center">
+              Currently mining your transaction...
+            </p>
+          </div>
+        ) : (
+          <button
+            className="mt-8 -5 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
+            onClick={wave}
+          >
+            Wave at Me
+          </button>
+        )}
       </main>
 
       <footer className="flex items-center justify-center w-full h-24 border-t">
