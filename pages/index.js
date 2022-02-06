@@ -3,39 +3,22 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { Oval } from 'react-loader-spinner';
 import abiObject from '../utils/WavePortal.json';
+import { checkIfWalletIsConnected } from './api/wallet';
 
 export default function Home() {
+  const [allWaves, setAllWaves] = useState([]);
   const [currentAccount, setCurrentAccount] = useState('');
   const [isMining, setIsMining] = useState(false);
 
   // Not sure if I have the correct address here.
-  const contractAddress = '0x1dFd3131197c1f454a318D2f6D55F56e23ACde2b';
+  // Previous contract address: const contractAddress = '0x1dFd3131197c1f454a318D2f6D55F56e23ACde2b';
+  const contractAddress = '0x9583512Db6D8c057f5e0E6a3C1E5ab258aF8D087';
   const contractABI = abiObject.abi;
 
-  const checkIfWalletIsConnected = async () => {
-    try {
-      const { ethereum } = window;
-
-      if (!ethereum) {
-        console.log('Make sure you have metamask!');
-        return;
-      } else {
-        console.log('We have the ethereum object', ethereum);
-      }
-
-      const accounts = await ethereum.request({ method: 'eth_accounts' });
-
-      if (accounts.length !== 0) {
-        const account = accounts[0];
-        console.log('Found an authorized account:', account);
-        setCurrentAccount(account);
-      } else {
-        console.log('No authorized account found');
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  useEffect(() => {
+    checkIfWalletIsConnected(setCurrentAccount());
+    getAllWaves();
+  }, []);
 
   const connectWallet = async () => {
     try {
@@ -75,7 +58,9 @@ export default function Home() {
 
         await setIsMining(true);
 
-        const waveTxn = await wavePortalContract.wave();
+        // FIXME
+        const waveTxn = await wavePortalContract.wave('Custom wave message.');
+
         console.log('Mining...', waveTxn.hash);
 
         await waveTxn.wait();
@@ -93,9 +78,37 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    checkIfWalletIsConnected();
-  }, []);
+  const getAllWaves = async () => {
+    try {
+      const { ethereum } = window;
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const wavePortalContract = new ethers.Contract(
+          contractAddress,
+          contractABI,
+          signer
+        );
+
+        const waves = await wavePortalContract.getAllWaves();
+
+        let wavesCleaned = [];
+        waves.forEach((wave) => {
+          wavesCleaned.push({
+            address: wave.waver,
+            timestamp: new Date(wave.timestamp * 1000),
+            message: wave.message,
+          });
+        });
+
+        setAllWaves(wavesCleaned);
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
@@ -157,6 +170,23 @@ export default function Home() {
         ) : (
           <p>Please connect your wallet</p>
         )}
+
+        {allWaves.map((wave, index) => {
+          return (
+            <div
+              key={index}
+              style={{
+                backgroundColor: 'OldLace',
+                marginTop: '16px',
+                padding: '8px',
+              }}
+            >
+              <div>Address: {wave.address}</div>
+              <div>Time: {wave.timestamp.toString()}</div>
+              <div>Message: {wave.message}</div>
+            </div>
+          );
+        })}
       </main>
 
       <footer className="flex items-center justify-center w-full h-24 border-t">
